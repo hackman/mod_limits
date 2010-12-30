@@ -40,47 +40,80 @@
 #include "ap_mpm.h"
 #include "apr_strings.h"
 
-#define MODULE_NAME "mod_m2"
-#define MODULE_VERSION "0.04"
+#define MODULE_NAME "mod_limits"
+#define MODULE_VERSION "0.06"
 
-module AP_MODULE_DECLARE_DATA m2_module;
+module AP_MODULE_DECLARE_DATA limits_module;
 
 static int server_limit, thread_limit;
 
 typedef struct {
     unsigned int ip;	/* max number of connections per IP */
     unsigned int uid;	/* max number of connections per UID */
-    unsigned int vhost;	/* max number of connections per VHost */
-} m2_config;
+	double loadavg; 	/* max load average */
+	double curavg[1];	/* current load average */
+	time_t lastavg;		/* last time we updated the load average */
+	unsigned int checkavg; /* how often we will check the load average */
+} limits_config;
 
-static void *m2_create_dir_config(apr_pool_t *p, char *path) {
-	m2_config *cfg = (m2_config *) apr_pcalloc(p, sizeof(m2_config));
+static void *create_dir_config(apr_pool_t *p, char *path) {
+	limits_config *limits = (limits_config *) apr_pcalloc(p, sizeof(limits_config));
 
-    /* default configuration: no limit, and both arrays are empty */
-    cfg->ip = 0;
-    cfg->uid = 0;
-    cfg->vhost = 0;
+    /* default configuration: no limits */
+	limits->ip = 0;
+	limits->uid = 0;
+	limits->loadavg = 0;
+	limits->checkavg = 5;
 
-    return (void *) cfg;
+	if ( getloadavg(limits->curavg, 1) > 0 )
+		limits->lastavg = time(NULL);
+
+    return (void *) limits;
 }
-static int m2_handler(request_rec *r) {
+
+static int limits_handler(request_rec *r) {
 	// get configuration information 
-	m2_config *limits = (m2_config *) ap_get_module_config(r->per_dir_config, &m2_module);
+	limits_config *limits = (limits_config *) ap_get_module_config(r->per_dir_config, &limits_module);
 	// loop index variable 
 	int i,j;
 	// current connection count from this address 
 	int ip_count = 0;
 	// scoreboard data structure 
 	worker_score *ws_record;
+
 	/* We decline to handle subrequests: otherwise, in the next step we
 	 * could get into an infinite loop. */
 	if (!ap_is_initial_req(r))
 		return DECLINED;
 
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, OK, r->server, 
-		"%s: current limit %d", MODULE_NAME, limits->ip);
+		"current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d", 
+		limits->ip, 
+		limits->uid,
+		limits->loadavg,
+		limits->curavg[0],
+		limits->lastavg);
 
-    /* A limit value of 0 by convention means no limit. */
+	// Check the loadavg only if we have any limit set
+	if (limits->loadavg != 0.0) {
+		// get the current load avg only if it is not updated in
+		// the last checkavg seconds
+		if (time(NULL) - limits->lastavg > limits->checkavg)
+			if ( getloadavg(limits->curavg, 1) > 0 )
+				limits->lastavg = time(NULL);
+		// decline the request if it is over the defined limit
+		if (limits->curavg[0] > limits->loadavg) {
+			ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server, 
+				"%s client rejected because current load %.2f > %.2f", 
+				r->connection->remote_ip, limits->curavg[0], limits->loadavg);
+			/* set an environment variable */
+			apr_table_setn(r->subprocess_env, "LIMITED", "1");
+			/* return 503 */
+			return HTTP_SERVICE_UNAVAILABLE;
+		}
+	}
+
+    // Check the ipcount only if we have any limit set
     if (limits->ip == 0)
         return OK; 
 
@@ -95,22 +128,22 @@ static int m2_handler(request_rec *r) {
 				ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server, 
 					"%s client exceeded connection limit", r->connection->remote_ip);
 				/* set an environment variable */
-				apr_table_setn(r->subprocess_env, "LIMITIP", "1");
+				apr_table_setn(r->subprocess_env, "LIMITED", "1");
 				/* return 503 */
 				return HTTP_SERVICE_UNAVAILABLE;
 			}
 		}
 	}
 		
-	ap_log_error(APLOG_MARK, APLOG_DEBUG, OK, r->server, 
-		"%s: current connection count for this client: %d", MODULE_NAME, ip_count);
+	ap_log_error(APLOG_MARK, APLOG_DEBUG, OK, r->server,
+		"%s connection count: %d", r->connection->remote_ip, ip_count);
 	
 	return OK;
 }
 
 /* Parse the MaxConnsPerIP directive */
 static const char *cfg_perip(cmd_parms *cmd, void *mconfig, const char *arg) {
-	m2_config *limits = (m2_config *) mconfig;
+	limits_config *limits = (limits_config *) mconfig;
 	unsigned long int limit = strtol(arg, (char **) NULL, 10);
 	if (limit == LONG_MAX) 
 		return "Integer overflow or invalid number";
@@ -118,54 +151,75 @@ static const char *cfg_perip(cmd_parms *cmd, void *mconfig, const char *arg) {
 	return NULL;
 }
 
+/* Parse the MaxConnsPerUID directive */
+static const char *cfg_peruid(cmd_parms *cmd, void *mconfig, const char *arg) {
+	limits_config *limits = (limits_config *) mconfig;
+	unsigned long int limit = strtol(arg, (char **) NULL, 10);
+	if (limit == LONG_MAX)
+		return "Integer overflow or invalid number";
+	limits->uid = limit;
+	return NULL;
+}
+
+/* Parse the MaxLoadAVG directive */
+static const char *cfg_loadavg(cmd_parms *cmd, void *mconfig, const char *arg) {
+	limits_config *limits = (limits_config *) mconfig;
+	double limit = strtod(arg, (char **) NULL);
+	if (limit < 0.0) 
+		return "Invalid MaxLoadAVG value";
+	limits->loadavg = limit;
+	return NULL;
+}
+
+/* Parse the CheckLoadAvg directive */
+static const char *cfg_checkavg(cmd_parms *cmd, void *mconfig, const char *arg) {
+	limits_config *limits = (limits_config *) mconfig;
+	unsigned long int v = strtol(arg, (char **) NULL, 10);
+	if (v == LONG_MAX)
+		return "Integer overflow or invalid number";
+	limits->checkavg = v;
+	return NULL;
+}
 
 /* Array describing structure of configuration directives */
-static command_rec m2_cmds[] = {
+static command_rec limits_cmds[] = {
 	AP_INIT_TAKE1(
 		"MaxConnsPerIP", cfg_perip, NULL, RSRC_CONF, 
 		"maximum simultaneous connections per IP address" ),
 	AP_INIT_TAKE1(
 		"MaxConnsPerUid", cfg_peruid, NULL, RSRC_CONF,
-		"maximum simultaneous connections per user"	),
+		"maximum simultaneous connections per user" ),
 	AP_INIT_TAKE1(
-		"MaxConnsPerVhost", cfg_pervhost, NULL, RSRC_CONF,
-		"maximum simultaneous connections per virtual host" ),
+		"MaxLoadAVG", cfg_loadavg, NULL, RSRC_CONF,
+		"maximum permitted load average" ),
 	AP_INIT_TAKE1(
-		"MaxLoad1", cfg_load1, NULL, RSRC_CONF,
-		"maximum Load Overage value for the past 1 minute" ),
-	AP_INIT_TAKE1(
-		"MaxLoad5", cfg_load5, NULL, RSRC_CONF,
-		"maximum Load Overage value for the past 5 minutes" ),
-	AP_INIT_TAKE1(
-		"MaxLoad15", cfg_load15, NULL, RSRC_CONF,
-		"maximum Load Overage value for the past 15 minutes" ),
+		"CheckLoadAvg", cfg_checkavg, NULL, RSRC_CONF,
+		"maximum simultaneous connections per user" ),
 	{NULL}
 };
 
 /* Emit an informational-level log message on startup and init the thread_limit and server_limit  */
-static int m2_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s) {
-    ap_log_error(APLOG_MARK, APLOG_DEBUG, OK, s, "%s/%s loaded", MODULE_NAME, MODULE_VERSION);
+static int limits_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s) {
+    ap_log_error(APLOG_MARK, APLOG_INFO, OK, s, "%s/%s loaded", MODULE_NAME, MODULE_VERSION);
     ap_mpm_query(AP_MPMQ_HARD_LIMIT_THREADS, &thread_limit);
     ap_mpm_query(AP_MPMQ_HARD_LIMIT_DAEMONS, &server_limit);
     return OK;	
 }
 
 static void register_hooks(apr_pool_t *p) {
-//	ap_hook_handler(m2_handler, NULL, NULL, APR_HOOK_MIDDLE);
-//	ap_hook_pre_connection(m2_handler, NULL, NULL, APR_HOOK_MIDDLE);
-
-	ap_hook_post_read_request(m2_handler, NULL, NULL, APR_HOOK_MIDDLE);
-	ap_hook_post_config(m2_init, NULL, NULL, APR_HOOK_MIDDLE);
-    ap_log_error(APLOG_MARK, APLOG_INFO, 0, NULL, "%s/%s registered", MODULE_NAME, MODULE_VERSION);
+//	static const char * const after_me[] = { "mod_cache.c", NULL };
+//	ap_hook_quick_handler(limits_handler, NULL, after_me, APR_HOOK_FIRST);
+	ap_hook_post_read_request(limits_handler, NULL, NULL, APR_HOOK_MIDDLE);
+	ap_hook_post_config(limits_init, NULL, NULL, APR_HOOK_MIDDLE);
 }
 
 
-module AP_MODULE_DECLARE_DATA m2_module = {
+module AP_MODULE_DECLARE_DATA limits_module = {
     STANDARD20_MODULE_STUFF,
-    m2_create_dir_config,	/* per-directory config creator */
-    NULL,					/* dir config merger */
-    NULL,					/* server config creator */
-    NULL,					/* server config merger */
-    m2_cmds,				/* command table */
-    register_hooks			/* set up other request processing hooks */
+    create_dir_config,	/* per-directory config creator */
+    NULL,				/* dir config merger */
+    NULL,				/* server config creator */
+    NULL,				/* server config merger */
+    limits_cmds,		/* command table */
+    register_hooks		/* set up other request processing hooks */
 };
