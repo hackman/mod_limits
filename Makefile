@@ -11,7 +11,7 @@ all: $(MODULES)
 
 install: all
 	@for i in $(MODULES); do \
-		$(APXS) -cia $$i; \
+		$(APXS) -cia $${i/.so/.c}; \
 	done
 
 clean:
