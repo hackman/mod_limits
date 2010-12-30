@@ -1,0 +1,51 @@
+mod_limits.c
+Marian Marinov <mm@yuhu.biz>
+Ideas borrowed from David Jao <djao@dominia.org> (mod_limitipconn).
+
+
+Apache 2 module aimed at protecting the web server during attacks.
+It provides 2 major functionalities:
+ * Limit the maximum number of simultaneous connections
+ * Do not serve request if the load is over certain value
+
+Example configuration:
+
+---------------------------------------------------------------------------
+
+ExtendedStatus On
+
+LoadModule limits_module modules/mod_limits.so
+
+<IfModule mod_limitsc>
+	MaxConnsPerIP 30
+	MaxLoadAVG 10
+</IfModule>
+
+---------------------------------------------------------------------------
+
+Notes:
+
+  This module will not function unless mod_status is loaded and the
+  "ExtendedStatus On" directive is set.
+
+  The limits defined by mod_limits.c apply to all IP addresses
+  connecting to your Apache server. Currently there is no way to set
+  different limits for different IP addresses.
+
+  Connections in excess of the limit result in a stock 503 Service
+  Temporarily Unavailable response. The job of returning a more useful
+  error message to the client is left as an exercise for the reader.
+
+  mod_limits sets the LIMITED environment variable to 1 whenever a
+  request is denied. You can use this variable to distinguish accesses 
+  that have been denied by this module. For example, a line like:
+
+	CustomLog /var/log/httpd/access_log common env=!LIMITED
+
+  in httpd.conf can be used to suppress logging of denied connections
+  from /var/log/httpd/access_log.
+
+  The options can be used within the main configuration or within 
+  a VirtualHost configuration.
+
+  You can have different limits for different vhosts.
