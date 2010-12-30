@@ -15,4 +15,4 @@ install: all
 	done
 
 clean:
-	rm -f *.o *.so
+	rm -f *.o *.so *.lo *.la *.slo
