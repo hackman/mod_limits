@@ -87,8 +87,8 @@ static int limits_handler(request_rec *r) {
 		return DECLINED;
 
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, OK, r->server, 
-		"current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d", 
-		limits->ip, 
+		"current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d",
+		limits->ip,
 		limits->uid,
 		limits->loadavg,
 		limits->curavg[0],
@@ -103,8 +103,8 @@ static int limits_handler(request_rec *r) {
 				limits->lastavg = time(NULL);
 		// decline the request if it is over the defined limit
 		if (limits->curavg[0] > limits->loadavg) {
-			ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server, 
-				"%s client rejected because current load %.2f > %.2f", 
+			ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server,
+				"%s client rejected because current load %.2f > %.2f",
 				r->connection->remote_ip, limits->curavg[0], limits->loadavg);
 			/* set an environment variable */
 			apr_table_setn(r->subprocess_env, "LIMITED", "1");
