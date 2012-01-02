@@ -22,11 +22,20 @@
  */
 
 #include "mod_limits.h"
+
+#ifdef APACHE2
 module AP_MODULE_DECLARE_DATA limits_module;
+#else
+module MODULE_VAR_EXPORT limits_module;
+#endif
 
-
+#ifdef APACHE2
 static void *create_dir_config(apr_pool_t *p, char *path) {
 	limits_config *limits = (limits_config *) apr_pcalloc(p, sizeof(limits_config));
+#else
+static void *create_dir_config(pool *p, char *path) {
+	limits_config *limits = (limits_config *) ap_pcalloc(p, sizeof(limits_config));
+#endif
 
     /* default configuration: no limits */
 	limits->ip = 0;
@@ -48,13 +57,17 @@ static int limits_handler(request_rec *r) {
 	// current connection count from this address 
 	int ip_count = 0;
 	// scoreboard data structure 
+#ifdef APACHE2
 	worker_score *ws_record;
+#else
+	short_score score_record;
+#endif
 
 	/* We decline to handle subrequests: otherwise, in the next step we
 	 * could get into an infinite loop. */
 	if (!ap_is_initial_req(r))
 		return DECLINED;
-
+#ifdef APACHE2
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, OK, r->server, 
 		"current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d",
 		limits->ip,
@@ -62,6 +75,15 @@ static int limits_handler(request_rec *r) {
 		limits->loadavg,
 		limits->curavg[0],
 		limits->lastavg);
+#else
+	ap_log_error(APLOG_MARK, APLOG_DEBUG, r->server,
+		"current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d",
+		limits->ip,
+		limits->uid,
+		limits->loadavg,
+		limits->curavg[0],
+		limits->lastavg);
+#endif
 
 	// Check the loadavg only if we have any limit set
 	if (limits->loadavg != 0.0) {
@@ -72,11 +94,19 @@ static int limits_handler(request_rec *r) {
 				limits->lastavg = time(NULL);
 		// decline the request if it is over the defined limit
 		if (limits->curavg[0] > limits->loadavg) {
+#ifdef APACHE2
 			ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server,
 				"%s client rejected because current load %.2f > %.2f",
 				r->connection->remote_ip, limits->curavg[0], limits->loadavg);
 			/* set an environment variable */
 			apr_table_setn(r->subprocess_env, "LIMITED", "1");
+#else
+			ap_log_error(APLOG_MARK, APLOG_INFO, r->server,
+				"%s client rejected because current load %.2f > %.2f",
+				r->connection->remote_ip, limits->curavg[0], limits->loadavg);
+			/* set an environment variable */
+			ap_table_setn(r->subprocess_env, "LIMITED", "1");
+#endif
 			/* return 503 */
 			return HTTP_SERVICE_UNAVAILABLE;
 		}
@@ -85,7 +115,7 @@ static int limits_handler(request_rec *r) {
     // Check the ipcount only if we have any limit set
     if (limits->ip == 0)
         return OK; 
-
+#ifdef APACHE2
     for (i = 0; i < server_limit; ++i) {
         for (j = 0; j < thread_limit; ++j) {
             ws_record = ap_get_scoreboard_worker(i, j);
@@ -106,6 +136,26 @@ static int limits_handler(request_rec *r) {
 		
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, OK, r->server,
 		"%s connection count: %d", r->connection->remote_ip, ip_count);
+#else
+	for (i = 0; i < HARD_SERVER_LIMIT; ++i) {
+		score_record = ap_scoreboard_image->servers[i];
+		/* Count the number of connections from this IP address
+		 * from the scoreboard */
+		if (strcmp(r->connection->remote_ip, score_record.client) == 0)
+			ip_count++;
+		if (ip_count > limits->ip) {
+			ap_log_error(APLOG_MARK, APLOG_INFO, r->server,
+				"%s client exceeded connection limit", r->connection->remote_ip);
+			/* set an environment variable */
+			ap_table_setn(r->subprocess_env, "LIMITED", "1");
+			/* return 503 */
+			return HTTP_SERVICE_UNAVAILABLE;
+		}
+	}
+
+	ap_log_error(APLOG_MARK, APLOG_DEBUG, r->server,
+		"%s connection count: %d", r->connection->remote_ip, ip_count);
+#endif
 	
 	return OK;
 }
@@ -152,6 +202,7 @@ static const char *cfg_checkavg(cmd_parms *cmd, void *mconfig, const char *arg) 
 
 /* Array describing structure of configuration directives */
 static command_rec limits_cmds[] = {
+#ifdef APACHE2
 	AP_INIT_TAKE1(
 		"MaxConnsPerIP", cfg_perip, NULL, RSRC_CONF, 
 		"maximum simultaneous connections per IP address" ),
@@ -164,9 +215,20 @@ static command_rec limits_cmds[] = {
 	AP_INIT_TAKE1(
 		"CheckLoadAvg", cfg_checkavg, NULL, RSRC_CONF,
 		"maximum simultaneous connections per user" ),
+#else
+	{"MaxConnsPerIP", cfg_perip, NULL, RSRC_CONF, TAKE1,
+		"maximum simultaneous connections per IP address" },
+	{"MaxConnsPerUid", cfg_peruid, NULL, RSRC_CONF, TAKE1,
+		"maximum simultaneous connections per user" },
+	{ "MaxLoadAVG", cfg_loadavg, NULL, RSRC_CONF, TAKE1,
+		"maximum permitted load average" },
+	{ "CheckLoadAvg", cfg_checkavg, NULL, RSRC_CONF, TAKE1,
+		"maximum simultaneous connections per user" },
+#endif
 	{NULL}
 };
 
+#ifdef APACHE2
 /* Emit an informational-level log message on startup and init the thread_limit and server_limit  */
 static int limits_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s) {
     ap_log_error(APLOG_MARK, APLOG_INFO, OK, s, "%s/%s loaded", MODULE_NAME, MODULE_VERSION);
@@ -192,3 +254,26 @@ module AP_MODULE_DECLARE_DATA limits_module = {
     limits_cmds,		/* command table */
     register_hooks		/* set up other request processing hooks */
 };
+#else
+module MODULE_VAR_EXPORT limits_module = {
+	STANDARD_MODULE_STUFF,
+	NULL,	/* initializer */
+	create_dir_config,	/* dir config creater */
+	NULL,	/* dir merger --- default is to override */
+	NULL,	/* server config */
+	NULL,	/* merge server config */
+	limits_cmds,	/* command table */
+	NULL,	/* handlers */
+	NULL,	/* filename translation */
+	NULL,	/* check_user_id */
+	NULL,	/* check auth */
+	limits_handler,	/* check access */
+	NULL,	/* type_checker */
+	NULL,	/* fixups */
+	NULL,	/* logger */
+	NULL,	/* header parser */
+	NULL,	/* child_init */
+	NULL,	/* child_exit */
+	NULL 	/* post read-request */
+};
+#endif /* APACHE2 */
