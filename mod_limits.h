@@ -29,13 +29,17 @@
 #include "http_protocol.h"
 #include "http_request.h"
 #include "util_script.h"
-#include "http_connection.h"
 #include "scoreboard.h"
-#include "ap_mpm.h"
-#include "apr_strings.h"
 
 #define MODULE_NAME "mod_limits"
 #define MODULE_VERSION "0.06"
+
+#ifndef APACHE_RELEASE
+#define APACHE2
+#include "http_connection.h"
+#include "ap_mpm.h"
+#include "apr_strings.h"
+#endif
 
 static int server_limit, thread_limit;
 
