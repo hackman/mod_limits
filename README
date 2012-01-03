@@ -3,7 +3,8 @@ Marian Marinov <mm@yuhu.biz>
 Ideas borrowed from David Jao <djao@dominia.org> (mod_limitipconn).
 
 
-Apache 2 module aimed at protecting the web server during attacks.
+This apache module is aimed at protecting the web server during attacks.
+
 It provides 2 major functionalities:
  * Limit the maximum number of simultaneous connections
  * Do not serve request if the load is over certain value
