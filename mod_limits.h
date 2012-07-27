@@ -41,6 +41,11 @@
 #include "apr_strings.h"
 #endif
 
+#if defined(AP_SERVER_MAJORVERSION_NUMBER) && AP_SERVER_MAJORVERSION_NUMBER == 2 && defined(AP_SERVER_MINORVERSION_NUMBER) && AP_SERVER_MINORVERSION_NUMBER >= 4
+#define APACHE24
+#endif
+
+
 static int server_limit, thread_limit;
 
 typedef struct {
