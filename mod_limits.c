@@ -74,7 +74,7 @@ static int limits_handler(request_rec *r) {
 		limits->uid,
 		limits->loadavg,
 		limits->curavg[0],
-		limits->lastavg);
+		(int) limits->lastavg);
 #else
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, r->server,
 		"current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d",
@@ -97,7 +97,11 @@ static int limits_handler(request_rec *r) {
 #ifdef APACHE2
 			ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server,
 				"%s client rejected because current load %.2f > %.2f",
+#ifdef APACHE24
+				r->connection->client_ip, limits->curavg[0], limits->loadavg);
+#else
 				r->connection->remote_ip, limits->curavg[0], limits->loadavg);
+#endif // APACHE24
 			/* set an environment variable */
 			apr_table_setn(r->subprocess_env, "LIMITED", "1");
 #else
@@ -106,7 +110,7 @@ static int limits_handler(request_rec *r) {
 				r->connection->remote_ip, limits->curavg[0], limits->loadavg);
 			/* set an environment variable */
 			ap_table_setn(r->subprocess_env, "LIMITED", "1");
-#endif
+#endif // APACHE2
 			/* return 503 */
 			return HTTP_SERVICE_UNAVAILABLE;
 		}
@@ -118,14 +122,23 @@ static int limits_handler(request_rec *r) {
 #ifdef APACHE2
     for (i = 0; i < server_limit; ++i) {
         for (j = 0; j < thread_limit; ++j) {
-            ws_record = ap_get_scoreboard_worker(i, j);
 			/* Count the number of connections from this IP address 
 			 * from the scoreboard */ 
+#ifdef APACHE24
+			ws_record = ap_get_scoreboard_worker_from_indexes(i, j);
+            if (strcmp(r->connection->client_ip, ws_record->client) == 0)
+#else
+            ws_record = ap_get_scoreboard_worker(i, j);
             if (strcmp(r->connection->remote_ip, ws_record->client) == 0)
+#endif // APACHE24
 				ip_count++;
 			if (ip_count > limits->ip) {
 				ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server, 
+#ifdef APACHE24
+					"%s client exceeded connection limit", r->connection->client_ip);
+#else
 					"%s client exceeded connection limit", r->connection->remote_ip);
+#endif // APACHE24
 				/* set an environment variable */
 				apr_table_setn(r->subprocess_env, "LIMITED", "1");
 				/* return 503 */
@@ -135,7 +148,11 @@ static int limits_handler(request_rec *r) {
 	}
 		
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, OK, r->server,
+#ifdef APACHE24
+		"%s connection count: %d", r->connection->client_ip, ip_count);
+#else
 		"%s connection count: %d", r->connection->remote_ip, ip_count);
+#endif // APACHE24
 #else
 	for (i = 0; i < HARD_SERVER_LIMIT; ++i) {
 		score_record = ap_scoreboard_image->servers[i];
@@ -155,7 +172,7 @@ static int limits_handler(request_rec *r) {
 
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, r->server,
 		"%s connection count: %d", r->connection->remote_ip, ip_count);
-#endif
+#endif // APACHE2
 	
 	return OK;
 }
