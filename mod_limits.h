@@ -32,7 +32,7 @@
 #include "scoreboard.h"
 
 #define MODULE_NAME "mod_limits"
-#define MODULE_VERSION "0.06"
+#define MODULE_VERSION "0.07"
 
 #ifndef APACHE_RELEASE
 #define APACHE2
