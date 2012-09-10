@@ -69,7 +69,7 @@ static int limits_handler(request_rec *r) {
 		return DECLINED;
 #ifdef APACHE2
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, OK, r->server, 
-		"current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d",
+		"mod_limits: current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d",
 		limits->ip,
 		limits->uid,
 		limits->loadavg,
@@ -77,7 +77,7 @@ static int limits_handler(request_rec *r) {
 		(int) limits->lastavg);
 #else
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, r->server,
-		"current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d",
+		"mod_limits: current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d",
 		limits->ip,
 		limits->uid,
 		limits->loadavg,
@@ -96,7 +96,7 @@ static int limits_handler(request_rec *r) {
 		if (limits->curavg[0] > limits->loadavg) {
 #ifdef APACHE2
 			ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server,
-				"%s client rejected because current load %.2f > %.2f",
+				"mod_limits: %s client rejected because current load %.2f > %.2f",
 #ifdef APACHE24
 				r->connection->client_ip, limits->curavg[0], limits->loadavg);
 #else
@@ -106,7 +106,7 @@ static int limits_handler(request_rec *r) {
 			apr_table_setn(r->subprocess_env, "LIMITED", "1");
 #else
 			ap_log_error(APLOG_MARK, APLOG_INFO, r->server,
-				"%s client rejected because current load %.2f > %.2f",
+				"mod_limits: %s client rejected because current load %.2f > %.2f",
 				r->connection->remote_ip, limits->curavg[0], limits->loadavg);
 			/* set an environment variable */
 			ap_table_setn(r->subprocess_env, "LIMITED", "1");
@@ -135,9 +135,9 @@ static int limits_handler(request_rec *r) {
 			if (ip_count > limits->ip) {
 				ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server, 
 #ifdef APACHE24
-					"%s client exceeded connection limit", r->connection->client_ip);
+					"mod_limits: %s client exceeded connection limit", r->connection->client_ip);
 #else
-					"%s client exceeded connection limit", r->connection->remote_ip);
+					"mod_limits: %s client exceeded connection limit", r->connection->remote_ip);
 #endif // APACHE24
 				/* set an environment variable */
 				apr_table_setn(r->subprocess_env, "LIMITED", "1");
@@ -149,9 +149,9 @@ static int limits_handler(request_rec *r) {
 		
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, OK, r->server,
 #ifdef APACHE24
-		"%s connection count: %d", r->connection->client_ip, ip_count);
+		"mod_limits: %s connection count: %d", r->connection->client_ip, ip_count);
 #else
-		"%s connection count: %d", r->connection->remote_ip, ip_count);
+		"mod_limits: %s connection count: %d", r->connection->remote_ip, ip_count);
 #endif // APACHE24
 #else
 	for (i = 0; i < HARD_SERVER_LIMIT; ++i) {
@@ -162,7 +162,7 @@ static int limits_handler(request_rec *r) {
 			ip_count++;
 		if (ip_count > limits->ip) {
 			ap_log_error(APLOG_MARK, APLOG_INFO, r->server,
-				"%s client exceeded connection limit", r->connection->remote_ip);
+				"mod_limits: %s client exceeded connection limit", r->connection->remote_ip);
 			/* set an environment variable */
 			ap_table_setn(r->subprocess_env, "LIMITED", "1");
 			/* return 503 */
@@ -171,7 +171,7 @@ static int limits_handler(request_rec *r) {
 	}
 
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, r->server,
-		"%s connection count: %d", r->connection->remote_ip, ip_count);
+		"mod_limits: %s connection count: %d", r->connection->remote_ip, ip_count);
 #endif // APACHE2
 	
 	return OK;
@@ -221,25 +221,25 @@ static const char *cfg_checkavg(cmd_parms *cmd, void *mconfig, const char *arg) 
 static command_rec limits_cmds[] = {
 #ifdef APACHE2
 	AP_INIT_TAKE1(
-		"MaxConnsPerIP", cfg_perip, NULL, RSRC_CONF, 
+		"LimitMaxConnsPerIP", cfg_perip, NULL, RSRC_CONF, 
 		"maximum simultaneous connections per IP address" ),
 	AP_INIT_TAKE1(
-		"MaxConnsPerUid", cfg_peruid, NULL, RSRC_CONF,
+		"LimitMaxConnsPerUid", cfg_peruid, NULL, RSRC_CONF,
 		"maximum simultaneous connections per user" ),
 	AP_INIT_TAKE1(
-		"MaxLoadAVG", cfg_loadavg, NULL, RSRC_CONF,
+		"LimitMaxLoadAVG", cfg_loadavg, NULL, RSRC_CONF,
 		"maximum permitted load average" ),
 	AP_INIT_TAKE1(
-		"CheckLoadAvg", cfg_checkavg, NULL, RSRC_CONF,
+		"LimitCheckLoadAvg", cfg_checkavg, NULL, RSRC_CONF,
 		"maximum simultaneous connections per user" ),
 #else
-	{"MaxConnsPerIP", cfg_perip, NULL, RSRC_CONF, TAKE1,
+	{"LimitMaxConnsPerIP", cfg_perip, NULL, RSRC_CONF, TAKE1,
 		"maximum simultaneous connections per IP address" },
-	{"MaxConnsPerUid", cfg_peruid, NULL, RSRC_CONF, TAKE1,
+	{"LimitMaxConnsPerUid", cfg_peruid, NULL, RSRC_CONF, TAKE1,
 		"maximum simultaneous connections per user" },
-	{ "MaxLoadAVG", cfg_loadavg, NULL, RSRC_CONF, TAKE1,
+	{ "LimitMaxLoadAVG", cfg_loadavg, NULL, RSRC_CONF, TAKE1,
 		"maximum permitted load average" },
-	{ "CheckLoadAvg", cfg_checkavg, NULL, RSRC_CONF, TAKE1,
+	{ "LimitCheckLoadAvg", cfg_checkavg, NULL, RSRC_CONF, TAKE1,
 		"maximum simultaneous connections per user" },
 #endif
 	{NULL}
