@@ -230,7 +230,7 @@ static command_rec limits_cmds[] = {
 		"LimitMaxLoadAVG", cfg_loadavg, NULL, RSRC_CONF,
 		"maximum permitted load average" ),
 	AP_INIT_TAKE1(
-		"LimitCheckLoadAvg", cfg_checkavg, NULL, RSRC_CONF,
+		"CheckLoadInterval", cfg_checkavg, NULL, RSRC_CONF,
 		"maximum simultaneous connections per user" ),
 #else
 	{"LimitMaxConnsPerIP", cfg_perip, NULL, RSRC_CONF, TAKE1,
@@ -239,7 +239,7 @@ static command_rec limits_cmds[] = {
 		"maximum simultaneous connections per user" },
 	{ "LimitMaxLoadAVG", cfg_loadavg, NULL, RSRC_CONF, TAKE1,
 		"maximum permitted load average" },
-	{ "LimitCheckLoadAvg", cfg_checkavg, NULL, RSRC_CONF, TAKE1,
+	{ "CheckLoadInterval", cfg_checkavg, NULL, RSRC_CONF, TAKE1,
 		"maximum simultaneous connections per user" },
 #endif
 	{NULL}
