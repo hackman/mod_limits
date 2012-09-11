@@ -32,7 +32,7 @@
 #include "scoreboard.h"
 
 #define MODULE_NAME "mod_limits"
-#define MODULE_VERSION "0.08"
+#define MODULE_VERSION "1.0"
 
 #ifndef APACHE_RELEASE
 #define APACHE2
@@ -45,14 +45,16 @@
 #define APACHE24
 #endif
 
-
+#ifdef APACHE2
 static int server_limit, thread_limit;
+#endif
 
 typedef struct {
-    unsigned int ip;	/* max number of connections per IP */
-    unsigned int uid;	/* max number of connections per UID */
-	double loadavg; 	/* max load average */
-	double curavg[1];	/* current load average */
-	time_t lastavg;		/* last time we updated the load average */
-	unsigned int checkavg; /* how often we will check the load average */
+	unsigned int ip;		// max number of connections per IP
+	unsigned int uid;		// max number of connections per UID
+	unsigned int vhost;		// max number of connections per VHOST
+	double loadavg; 		// max load average
+	double curavg[1];		// current load average
+	time_t lastavg;			// last time we updated the load average
+	unsigned int checkavg;	// how often we will check the load average
 } limits_config;

@@ -40,6 +40,7 @@ static void *create_dir_config(pool *p, char *path) {
     // default configuration: no limits 
 	limits->ip = 0;
 	limits->uid = 0;
+	limits->vhost = 0;
 	limits->loadavg = 0;
 	limits->checkavg = 5;
 
@@ -53,12 +54,15 @@ static int limits_handler(request_rec *r) {
 	// get configuration information 
 	limits_config *limits = (limits_config *) ap_get_module_config(r->per_dir_config, &limits_module);
 	// loop index variable 
-	int i,j;
+	int i;
 	// current connection count from this address 
 	int ip_count = 0;
+	// current connections for this vhost
+	int vhost_count = 0;
 	// scoreboard data structure 
 #ifdef APACHE2
 	worker_score *ws_record;
+	int j;
 #else
 	short_score score_record;
 #endif
@@ -68,20 +72,22 @@ static int limits_handler(request_rec *r) {
 		return DECLINED;
 #ifdef APACHE2
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, OK, r->server, 
-		"mod_limits: current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d",
+		"mod_limits: current limits IP: %d UID: %d VHost: %d Load: %.2f cAVG: %.2f T: %d",
 		limits->ip,
 		limits->uid,
+		limits->vhost,
 		limits->loadavg,
 		limits->curavg[0],
 		(int) limits->lastavg);
 #else
 	ap_log_error(APLOG_MARK, APLOG_DEBUG, r->server,
-		"mod_limits: current limits IP: %d UID: %d Load: %.2f cAVG: %.2f T: %d",
+		"mod_limits: current limits IP: %d UID: %d VHost: %d Load: %.2f cAVG: %.2f T: %d",
 		limits->ip,
 		limits->uid,
+		limits->vhost,
 		limits->loadavg,
 		limits->curavg[0],
-		limits->lastavg);
+		(int) limits->lastavg);
 #endif
 
 	// Check the loadavg only if we have any limit set
@@ -115,32 +121,49 @@ static int limits_handler(request_rec *r) {
 		}
 	}
 
-    // Check the ipcount only if we have any limit set
-    if (limits->ip == 0)
-        return OK; 
 #ifdef APACHE2
     for (i = 0; i < server_limit; ++i) {
         for (j = 0; j < thread_limit; ++j) {
 			// Count the number of connections from this IP address from the scoreboard 
 #ifdef APACHE24
 			ws_record = ap_get_scoreboard_worker_from_indexes(i, j);
-            if (strcmp(r->connection->client_ip, ws_record->client) == 0)
+			if (limits->ip > 0) 
+				if (strcmp(r->connection->client_ip, ws_record->client) == 0)
 #else
             ws_record = ap_get_scoreboard_worker(i, j);
-            if (strcmp(r->connection->remote_ip, ws_record->client) == 0)
+			if (limits->ip > 0) {
+				if (strcmp(r->connection->remote_ip, ws_record->client) == 0)
 #endif // APACHE24
-				ip_count++;
-			if (ip_count > limits->ip) {
-				ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server, 
+					ip_count++;
+				if (ip_count > limits->ip) {
+					ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server, 
 #ifdef APACHE24
-					"mod_limits: %s client exceeded connection limit", r->connection->client_ip);
+						"mod_limits: %s client exceeded connection limit", r->connection->client_ip);
 #else
-					"mod_limits: %s client exceeded connection limit", r->connection->remote_ip);
+						"mod_limits: %s client exceeded connection limit", r->connection->remote_ip);
 #endif // APACHE24
-				// set an environment variable
-				apr_table_setn(r->subprocess_env, "LIMITED", "1");
-				// return 503
-				return HTTP_SERVICE_UNAVAILABLE;
+					// set an environment variable
+					apr_table_setn(r->subprocess_env, "LIMITED", "1");
+					// return 503
+					return HTTP_SERVICE_UNAVAILABLE;
+				}
+			}
+
+			if (limits->vhost > 0) {
+				if (strncmp(r->server->server_hostname, ws_record->vhost, 31) == 0)
+					vhost_count++;
+				if (vhost_count > limits->vhost) {
+					ap_log_error(APLOG_MARK, APLOG_INFO, OK, r->server,
+#ifdef APACHE24
+						"mod_limits: %s client exceeded vhost connection limit", r->connection->client_ip);
+#else
+						"mod_limits: %s client exceeded vhost connection limit", r->connection->remote_ip);
+#endif // APACHE24
+					// set an environment variable
+					apr_table_setn(r->subprocess_env, "LIMITED", "1");
+					// return 503
+					return HTTP_SERVICE_UNAVAILABLE;
+				}
 			}
 		}
 	}
@@ -178,9 +201,19 @@ static int limits_handler(request_rec *r) {
 static const char *cfg_perip(cmd_parms *cmd, void *mconfig, const char *arg) {
 	limits_config *limits = (limits_config *) mconfig;
 	unsigned long int limit = strtol(arg, (char **) NULL, 10);
-	if (limit == LONG_MAX) 
+	if (limit == LONG_MAX)
 		return "Integer overflow or invalid number";
 	limits->ip = limit;
+	return NULL;
+}
+
+// Parse the LimitMaxConnsPerVhost directive
+static const char *cfg_pervhost(cmd_parms *cmd, void *mconfig, const char *arg) {
+	limits_config *limits = (limits_config *) mconfig;
+	unsigned long int limit = strtol(arg, (char **) NULL, 10);
+	if (limit == LONG_MAX)
+		return "Integer overflow or invalid number";
+	limits->vhost = limit;
 	return NULL;
 }
 
@@ -221,6 +254,9 @@ static command_rec limits_cmds[] = {
 		"LimitMaxConnsPerIP", cfg_perip, NULL, RSRC_CONF, 
 		"maximum simultaneous connections per IP address" ),
 	AP_INIT_TAKE1(
+		"LimitMaxConnsPerVhost", cfg_pervhost, NULL, RSRC_CONF,
+		"maximum simultaneous connections per Vhost" ),
+	AP_INIT_TAKE1(
 		"LimitMaxConnsPerUid", cfg_peruid, NULL, RSRC_CONF,
 		"maximum simultaneous connections per user" ),
 	AP_INIT_TAKE1(
@@ -232,6 +268,8 @@ static command_rec limits_cmds[] = {
 #else
 	{"LimitMaxConnsPerIP", cfg_perip, NULL, RSRC_CONF, TAKE1,
 		"maximum simultaneous connections per IP address" },
+	{"LimitMaxConnsPerVhost", cfg_pervhost, NULL, RSRC_CONF, TAKE1,
+		"maximum simultaneous connections per vhost" },
 	{"LimitMaxConnsPerUid", cfg_peruid, NULL, RSRC_CONF, TAKE1,
 		"maximum simultaneous connections per user" },
 	{ "LimitMaxLoadAVG", cfg_loadavg, NULL, RSRC_CONF, TAKE1,
