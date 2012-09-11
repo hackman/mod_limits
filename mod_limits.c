@@ -37,7 +37,7 @@ static void *create_dir_config(pool *p, char *path) {
 	limits_config *limits = (limits_config *) ap_pcalloc(p, sizeof(limits_config));
 #endif
 
-    /* default configuration: no limits */
+    // default configuration: no limits 
 	limits->ip = 0;
 	limits->uid = 0;
 	limits->loadavg = 0;
@@ -63,8 +63,7 @@ static int limits_handler(request_rec *r) {
 	short_score score_record;
 #endif
 
-	/* We decline to handle subrequests: otherwise, in the next step we
-	 * could get into an infinite loop. */
+	// We decline to handle subrequests: otherwise, in the next step we could get into an infinite loop. 
 	if (!ap_is_initial_req(r))
 		return DECLINED;
 #ifdef APACHE2
@@ -102,16 +101,16 @@ static int limits_handler(request_rec *r) {
 #else
 				r->connection->remote_ip, limits->curavg[0], limits->loadavg);
 #endif // APACHE24
-			/* set an environment variable */
+			// set an environment variable 
 			apr_table_setn(r->subprocess_env, "LIMITED", "1");
 #else
 			ap_log_error(APLOG_MARK, APLOG_INFO, r->server,
 				"mod_limits: %s client rejected because current load %.2f > %.2f",
 				r->connection->remote_ip, limits->curavg[0], limits->loadavg);
-			/* set an environment variable */
+			// set an environment variable 
 			ap_table_setn(r->subprocess_env, "LIMITED", "1");
 #endif // APACHE2
-			/* return 503 */
+			// return 503 
 			return HTTP_SERVICE_UNAVAILABLE;
 		}
 	}
@@ -122,8 +121,7 @@ static int limits_handler(request_rec *r) {
 #ifdef APACHE2
     for (i = 0; i < server_limit; ++i) {
         for (j = 0; j < thread_limit; ++j) {
-			/* Count the number of connections from this IP address 
-			 * from the scoreboard */ 
+			// Count the number of connections from this IP address from the scoreboard 
 #ifdef APACHE24
 			ws_record = ap_get_scoreboard_worker_from_indexes(i, j);
             if (strcmp(r->connection->client_ip, ws_record->client) == 0)
@@ -139,9 +137,9 @@ static int limits_handler(request_rec *r) {
 #else
 					"mod_limits: %s client exceeded connection limit", r->connection->remote_ip);
 #endif // APACHE24
-				/* set an environment variable */
+				// set an environment variable
 				apr_table_setn(r->subprocess_env, "LIMITED", "1");
-				/* return 503 */
+				// return 503
 				return HTTP_SERVICE_UNAVAILABLE;
 			}
 		}
@@ -156,16 +154,15 @@ static int limits_handler(request_rec *r) {
 #else
 	for (i = 0; i < HARD_SERVER_LIMIT; ++i) {
 		score_record = ap_scoreboard_image->servers[i];
-		/* Count the number of connections from this IP address
-		 * from the scoreboard */
+		// Count the number of connections from this IP address from the scoreboard
 		if (strcmp(r->connection->remote_ip, score_record.client) == 0)
 			ip_count++;
 		if (ip_count > limits->ip) {
 			ap_log_error(APLOG_MARK, APLOG_INFO, r->server,
 				"mod_limits: %s client exceeded connection limit", r->connection->remote_ip);
-			/* set an environment variable */
+			// set an environment variable
 			ap_table_setn(r->subprocess_env, "LIMITED", "1");
-			/* return 503 */
+			// return 503
 			return HTTP_SERVICE_UNAVAILABLE;
 		}
 	}
@@ -177,7 +174,7 @@ static int limits_handler(request_rec *r) {
 	return OK;
 }
 
-/* Parse the MaxConnsPerIP directive */
+// Parse the LimitMaxConnsPerIP directive
 static const char *cfg_perip(cmd_parms *cmd, void *mconfig, const char *arg) {
 	limits_config *limits = (limits_config *) mconfig;
 	unsigned long int limit = strtol(arg, (char **) NULL, 10);
@@ -187,7 +184,7 @@ static const char *cfg_perip(cmd_parms *cmd, void *mconfig, const char *arg) {
 	return NULL;
 }
 
-/* Parse the MaxConnsPerUID directive */
+// Parse the LimitMaxConnsPerUID directive
 static const char *cfg_peruid(cmd_parms *cmd, void *mconfig, const char *arg) {
 	limits_config *limits = (limits_config *) mconfig;
 	unsigned long int limit = strtol(arg, (char **) NULL, 10);
@@ -197,7 +194,7 @@ static const char *cfg_peruid(cmd_parms *cmd, void *mconfig, const char *arg) {
 	return NULL;
 }
 
-/* Parse the MaxLoadAVG directive */
+// Parse the LimitMaxLoadAVG directive
 static const char *cfg_loadavg(cmd_parms *cmd, void *mconfig, const char *arg) {
 	limits_config *limits = (limits_config *) mconfig;
 	double limit = strtod(arg, (char **) NULL);
@@ -207,7 +204,7 @@ static const char *cfg_loadavg(cmd_parms *cmd, void *mconfig, const char *arg) {
 	return NULL;
 }
 
-/* Parse the CheckLoadAvg directive */
+// Parse the CheckLoadInterval directive 
 static const char *cfg_checkavg(cmd_parms *cmd, void *mconfig, const char *arg) {
 	limits_config *limits = (limits_config *) mconfig;
 	unsigned long int v = strtol(arg, (char **) NULL, 10);
@@ -217,7 +214,7 @@ static const char *cfg_checkavg(cmd_parms *cmd, void *mconfig, const char *arg) 
 	return NULL;
 }
 
-/* Array describing structure of configuration directives */
+// Array describing structure of configuration directives 
 static command_rec limits_cmds[] = {
 #ifdef APACHE2
 	AP_INIT_TAKE1(
@@ -246,7 +243,7 @@ static command_rec limits_cmds[] = {
 };
 
 #ifdef APACHE2
-/* Emit an informational-level log message on startup and init the thread_limit and server_limit  */
+// Emit an informational-level log message on startup and init the thread_limit and server_limit  
 static int limits_init(apr_pool_t *p, apr_pool_t *plog, apr_pool_t *ptemp, server_rec *s) {
     ap_log_error(APLOG_MARK, APLOG_INFO, OK, s, "%s/%s loaded", MODULE_NAME, MODULE_VERSION);
     ap_mpm_query(AP_MPMQ_HARD_LIMIT_THREADS, &thread_limit);
@@ -264,33 +261,33 @@ static void register_hooks(apr_pool_t *p) {
 
 module AP_MODULE_DECLARE_DATA limits_module = {
     STANDARD20_MODULE_STUFF,
-    create_dir_config,	/* per-directory config creator */
-    NULL,				/* dir config merger */
-    NULL,				/* server config creator */
-    NULL,				/* server config merger */
-    limits_cmds,		/* command table */
-    register_hooks		/* set up other request processing hooks */
+    create_dir_config,	// per-directory config creator
+    NULL,				// dir config merger
+    NULL,				// server config creator
+    NULL,				// server config merger
+    limits_cmds,		// command table
+    register_hooks		// set up other request processing hooks
 };
 #else
 module MODULE_VAR_EXPORT limits_module = {
 	STANDARD_MODULE_STUFF,
-	NULL,	/* initializer */
-	create_dir_config,	/* dir config creater */
-	NULL,	/* dir merger --- default is to override */
-	NULL,	/* server config */
-	NULL,	/* merge server config */
-	limits_cmds,	/* command table */
-	NULL,	/* handlers */
-	NULL,	/* filename translation */
-	NULL,	/* check_user_id */
-	NULL,	/* check auth */
-	limits_handler,	/* check access */
-	NULL,	/* type_checker */
-	NULL,	/* fixups */
-	NULL,	/* logger */
-	NULL,	/* header parser */
-	NULL,	/* child_init */
-	NULL,	/* child_exit */
-	NULL 	/* post read-request */
+	NULL,				// initializer
+	create_dir_config,	// dir config creater
+	NULL,				// dir merger --- default is to override
+	NULL,				// server config
+	NULL,				// merge server config
+	limits_cmds,		// command table
+	NULL,				// handlers
+	NULL,				// filename translation
+	NULL,				// check_user_id
+	NULL,				// check auth
+	limits_handler,		// check access
+	NULL,				// type_checker
+	NULL,				// fixups
+	NULL,				// logger
+	NULL,				// header parser
+	NULL,				// child_init
+	NULL,				// child_exit
+	NULL 				// post read-request
 };
-#endif /* APACHE2 */
+#endif // APACHE2
