@@ -122,6 +122,7 @@ static int limits_handler(request_rec *r) {
 	}
 
 #ifdef APACHE2
+	// Apache 2.x handling here
     for (i = 0; i < server_limit; ++i) {
         for (j = 0; j < thread_limit; ++j) {
 			// Count the number of connections from this IP address from the scoreboard 
@@ -175,18 +176,34 @@ static int limits_handler(request_rec *r) {
 		"mod_limits: %s connection count: %d", r->connection->remote_ip, ip_count);
 #endif // APACHE24
 #else
+	// Apache 1.3 code here
+
 	for (i = 0; i < HARD_SERVER_LIMIT; ++i) {
 		score_record = ap_scoreboard_image->servers[i];
-		// Count the number of connections from this IP address from the scoreboard
-		if (strcmp(r->connection->remote_ip, score_record.client) == 0)
-			ip_count++;
-		if (ip_count > limits->ip) {
-			ap_log_error(APLOG_MARK, APLOG_INFO, r->server,
-				"mod_limits: %s client exceeded connection limit", r->connection->remote_ip);
-			// set an environment variable
-			ap_table_setn(r->subprocess_env, "LIMITED", "1");
-			// return 503
-			return HTTP_SERVICE_UNAVAILABLE;
+		if (limits->ip > 0) {
+			// Count the number of connections from this IP address from the scoreboard
+			if (strcmp(r->connection->remote_ip, score_record.client) == 0)
+				ip_count++;
+			if (ip_count > limits->ip) {
+				ap_log_error(APLOG_MARK, APLOG_INFO, r->server,
+					"mod_limits: %s client exceeded connection limit", r->connection->remote_ip);
+				// set an environment variable
+				ap_table_setn(r->subprocess_env, "LIMITED", "1");
+				// return 503
+				return HTTP_SERVICE_UNAVAILABLE;
+			}
+		}
+		if (limits->vhost > 0) {
+			if (strcmp(r->server->server_hostname, score_record.vhostrec->server_hostname) == 0)
+				vhost_count++;
+			if (vhost_count > limits->vhost) {
+				ap_log_error(APLOG_MARK, APLOG_INFO, r->server,
+					"mod_limits: %s client exceeded vhost connection limit", r->connection->remote_ip);
+				// set an environment variable
+				ap_table_setn(r->subprocess_env, "LIMITED", "1");
+				// return 503
+				return HTTP_SERVICE_UNAVAILABLE;
+			}
 		}
 	}
 
