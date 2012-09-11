@@ -18,8 +18,10 @@ ExtendedStatus On
 LoadModule limits_module modules/mod_limits.so
 
 <IfModule mod_limits.c>
-	MaxConnsPerIP 30
-	MaxLoadAVG 10
+	LimitMaxConnsPerUid 20
+	LimitMaxConnsPerIP 30
+	LimitMaxLoadAVG 10
+	CheckLoadInterval 5
 </IfModule>
 
 ---------------------------------------------------------------------------
