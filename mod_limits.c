@@ -128,7 +128,7 @@ static int limits_handler(request_rec *r) {
 			// Count the number of connections from this IP address from the scoreboard 
 #ifdef APACHE24
 			ws_record = ap_get_scoreboard_worker_from_indexes(i, j);
-			if (limits->ip > 0) 
+			if (limits->ip > 0) {
 				if (strcmp(r->connection->client_ip, ws_record->client) == 0)
 #else
             ws_record = ap_get_scoreboard_worker(i, j);
