@@ -281,7 +281,7 @@ static command_rec limits_cmds[] = {
 		"maximum permitted load average" ),
 	AP_INIT_TAKE1(
 		"CheckLoadInterval", cfg_checkavg, NULL, RSRC_CONF,
-		"maximum simultaneous connections per user" ),
+		"time between checks of the load average, it is useless under 5 seconds, because the kernel do not update it so often" ),
 #else
 	{"LimitMaxConnsPerIP", cfg_perip, NULL, RSRC_CONF, TAKE1,
 		"maximum simultaneous connections per IP address" },
@@ -292,7 +292,7 @@ static command_rec limits_cmds[] = {
 	{ "LimitMaxLoadAVG", cfg_loadavg, NULL, RSRC_CONF, TAKE1,
 		"maximum permitted load average" },
 	{ "CheckLoadInterval", cfg_checkavg, NULL, RSRC_CONF, TAKE1,
-		"maximum simultaneous connections per user" },
+		"time between checks of the load average, it is useless under 5 seconds, because the kernel do not update it so often" },
 #endif
 	{NULL}
 };
