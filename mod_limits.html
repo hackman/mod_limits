@@ -30,9 +30,11 @@
 <h3>Summary</h3>
 <p><code class="module"><span style="text-decoration: underline;">mod_limits</span></code>
 is aimed at protecting the web server during attacks.<br />
-It provides two major functionalities:<br />
+It provides a few, very usefull, functionalities:<br />
 <ul>
   <li>Limit the maximum number of simultaneous connections</li>
+  <li>Limit the maximum number of simultaneous connections per Vhost</li>
+  <li>Limit the maximum number of spawned processes with the same UID</li>
   <li>Do not serve request if the load is over certain value</li>
 </ul>
 This module will not function unless mod_status is loaded and the "ExtendedStatus On" directive is set.
@@ -43,10 +45,10 @@ This module will not function unless mod_status is loaded and the "ExtendedStatu
 
 
 <div class="top"><a href="#page-header"><img alt="top" src="images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="maxconnsperip" id="maxconnsperip">MaxConnsPerIP Directive</a></h2>
+<div class="directive-section"><h2><a name="limitmaxconnsperip" id="maxconnsperip">LimitMaxConnsPerIP Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Defines the maximum number of connections from a single IP.</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>MaxConnsPerIP <var>number</var> <var>(default: 30)</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>LimitMaxConnsPerIP <var>number</var> <var>(default: no limit)</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>FileInfo</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
@@ -62,7 +64,7 @@ This module will not function unless mod_status is loaded and the "ExtendedStatu
 	LoadModule limits_module modules/mod_limits.so<br />
 	<br />
 	&lt;IfModule mod_limits.c&gt;<br />
-	&nbsp;&nbsp;&nbsp;MaxConnsPerIP 30<br />
+	&nbsp;&nbsp;&nbsp;LimitMaxConnsPerIP 30<br />
 	&lt;/IfModule&gt;<br />
       <br />
     </code></p></div>
@@ -70,10 +72,64 @@ This module will not function unless mod_status is loaded and the "ExtendedStatu
 </div>
 
 <div class="top"><a href="#page-header"><img alt="top" src="images/up.gif" /></a></div>
-<div class="directive-section"><h2><a name="maxloadavg" id="maxloadavg">MaxLoadAVG Directive</a></h2>
+<div class="directive-section"><h2><a name="limitmaxconnspervhost" id="maxconnspervhost">LimitMaxConnsPerVhost Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Defines the maximum number of connections from a single IP to a single Vhost.</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>LimitMaxConnsPerVhost <var>number</var> <var>(default: no limit)</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
+<tr><th><a href="directive-dict.html#Override">Override:</a></th><td>FileInfo</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_limits</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Apache 2.x</td></tr>
+
+</table>
+    <p>This directive sets a limit of the maximum simultaneous connections to a vhost.
+
+    <div class="example"><h3>Example</h3><p><code>
+	ExtendedStatus On<br />
+	<br />
+	LoadModule limits_module modules/mod_limits.so<br />
+	<br />
+	&lt;IfModule mod_limits.c&gt;<br />
+	&nbsp;&nbsp;&nbsp;LimitMaxConnsPerVhost 30<br />
+	&lt;/IfModule&gt;<br />
+      <br />
+    </code></p></div>
+
+</div>
+
+<div class="top"><a href="#page-header"><img alt="top" src="images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="limitmaxconnsperuid" id="maxconnsperuid">LimitMaxConnsPerUID Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Defines the maximum number of processes with the same UID.</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>LimitMaxConnsPerUID <var>number</var> <var>(default: no limit)</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
+<tr><th><a href="directive-dict.html#Override">Override:</a></th><td>FileInfo</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_limits</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Apache 2.x</td></tr>
+
+</table>
+    <p>This directive sets a limit of the maximum simultaneous processes for a single UID
+
+    <div class="example"><h3>Example</h3><p><code>
+	ExtendedStatus On<br />
+	<br />
+	LoadModule limits_module modules/mod_limits.so<br />
+	<br />
+	&lt;IfModule mod_limits.c&gt;<br />
+	&nbsp;&nbsp;&nbsp;LimitMaxConnsPerUID 30<br />
+	&lt;/IfModule&gt;<br />
+      <br />
+    </code></p></div>
+
+</div>
+
+<div class="top"><a href="#page-header"><img alt="top" src="images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="limitmaxloadavg" id="limitmaxloadavg">LimitMaxLoadAVG Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Defines the maximum number of connections from a single IP.</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>MaxLoadAVG <var>number</var> <var>(default: 30)</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>LimitMaxLoadAVG <var>number</var> <var>(default: no limit)</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Override">Override:</a></th><td>FileInfo</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
@@ -89,7 +145,32 @@ This module will not function unless mod_status is loaded and the "ExtendedStatu
 	LoadModule limits_module modules/mod_limits.so<br />
 	<br />
 	&lt;IfModule mod_limits.c&gt;<br />
-	&nbsp;&nbsp;&nbsp;MaxLoadAVG 10<br />
+	&nbsp;&nbsp;&nbsp;LimitMaxLoadAVG 10<br />
+	&lt;/IfModule&gt;<br />
+      <br />
+    </code></p></div>
+
+</div>
+
+<div class="top"><a href="#page-header"><img alt="top" src="images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="checkloadinterval" id="checkloadinverval">CheckLoadInterval Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Defines the time between check of the system LoadAVG(in seconds).</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>CheckLoadInterval <var>number</var> <var>(default: 5 seconds)</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
+<tr><th><a href="directive-dict.html#Override">Override:</a></th><td>FileInfo</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Base</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>mod_limits</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Apache 2.x</td></tr>
+
+</table>
+    <p>This directive sets the amount of time that has to pass between checks of /proc/loadavg. It is pointless to be set under 5 seconds, because the kernel updates the information at most every 5 seconds.
+
+    <div class="example"><h3>Example</h3><p><code>
+	LoadModule limits_module modules/mod_limits.so<br />
+	<br />
+	&lt;IfModule mod_limits.c&gt;<br />
+	&nbsp;&nbsp;&nbsp;CheckLoadInterval 5<br />
 	&lt;/IfModule&gt;<br />
       <br />
     </code></p></div>
@@ -101,7 +182,7 @@ This module will not function unless mod_status is loaded and the "ExtendedStatu
 <div class="bottomlang"><p><span>Available Languages: </span><a href="#" title="English">&nbsp;en&nbsp;</a></p>
 </div>
 <div id="footer">
-<p class="apache">Copyright 2011 Marian Marinov &lt;mm@yuhu.biz&gt;.<br>
+<p class="apache">Copyright 2010-2016 Marian Marinov &lt;mm@yuhu.biz&gt;.<br>
 Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.
 </p>
 </div>
