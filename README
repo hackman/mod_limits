@@ -5,8 +5,11 @@ Ideas borrowed from David Jao <djao@dominia.org> (mod_limitipconn).
 
 This apache module is aimed at protecting the web server during attacks.
 
-It provides 2 major functionalities:
+It provides a few, very usefull, functionalities:
+
  * Limit the maximum number of simultaneous connections
+ * Limit the maximum number of simultaneous connections per Vhost
+ * Limit the maximum number of spawned processes with the same UID
  * Do not serve request if the load is over certain value
 
 Example configuration:
@@ -18,6 +21,7 @@ ExtendedStatus On
 LoadModule limits_module modules/mod_limits.so
 
 <IfModule mod_limits.c>
+	LimitMaxConnsPerVhost 20
 	LimitMaxConnsPerUid 20
 	LimitMaxConnsPerIP 30
 	LimitMaxLoadAVG 10
